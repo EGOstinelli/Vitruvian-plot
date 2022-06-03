@@ -3,14 +3,13 @@ rm(list=ls())
 library(magick)
 library(ggplot2)
 library(netmeta)
-library(tidyverse)
 library(extrafont)
 loadfonts()
 
 noutcome <- 5 # number of outcomes
 ntreat <- 7 # number of treatments
 
-# generate dataset - adapted from Seo et al. 2021
+# generate dataset
 generateData <- function (logOR = NULL, p.ref.1, p.ref.2) {
   
   t1 <- rep(combn(ntreat,2)[1,], each = 2) # arm 1 treatment
@@ -20,9 +19,9 @@ generateData <- function (logOR = NULL, p.ref.1, p.ref.2) {
   OR <- exp(logOR)
   
   studlab <- seq(nstudy)
-  n1 <- n2 <- round(runif(nstudy,300,600)) # sample size for each study
+  n1 <- n2 <- round(runif(nstudy,300,600)) #sample size for each study
   
-  p.ref <- runif(nstudy,p.ref.1, p.ref.2) # study-specific probability of an event
+  p.ref <- runif(nstudy,p.ref.1, p.ref.2) # study-specific probability of an event in treatment 1
   odds.ref <- p.ref / (1 - p.ref)
   
   # define probabilities per treatment, per study arm
@@ -49,7 +48,7 @@ generateData <- function (logOR = NULL, p.ref.1, p.ref.2) {
   return(data)
 }
 
-# last two parameters are range for probability of an event
+# last two parameters are range for probability of an event in treatment 1
 set.seed(5)
 data1 <- generateData(logOR = c(0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6), 0.1, 0.15)
 set.seed(6)
@@ -60,7 +59,7 @@ set.seed(8)
 data4 <- generateData(logOR = c(0, 0.2, 0.05, 0, 0, 0.02, 0.1), 0.10, 0.17)
 set.seed(9)
 data5 <- generateData(logOR = c(0, 1.3, 0.5, 0.6, 0.8, 0.7, 1.2), 0.1, 0.15)
-store0 <- list(data1, data2, data3, data4, data5)
+store0 <- list(data1, data2, data3, data4, data5) #data for each outcome
 
 # Fit network meta analysis (for 5 outcomes)
 p1 = pairwise(treat = drug, event = outcome, n = n, studlab = studlab, data = data1, sm = 'OR', allstudies=T)
@@ -78,7 +77,7 @@ result4 <- netmeta(p4)
 p5 = pairwise(treat = drug, event = outcome, n = n, studlab = studlab, data = data5, sm = 'OR', allstudies=T)
 result5 <- netmeta(p5)
 
-store <- list(result1, result2, result3, result4, result5)
+store <- list(result1, result2, result3, result4, result5) # NMA results
 
 #####
 
@@ -94,7 +93,7 @@ for(i in 1:noutcome){
   OR.pla$logOR <- net1$TE.random[,1]
   OR.pla$seTE <- net1$seTE.random[,1]
   OR.pla$OR <- exp(OR.pla$logOR)
-  OR.pla <- OR.pla[-which(OR.pla$drug == 1),] # exclude comparison with placebo itself which is 0
+  OR.pla <- OR.pla[-which(OR.pla$drug == 1),] #exclude comparison with placebo itself which is 0
   
   # meta analysis of event rates in placebo
   meta.pla = metaprop(event = round(data$outcome[data$drug==1]), n = data$n[data$drug==1], method = 'GLMM')
@@ -102,25 +101,25 @@ for(i in 1:noutcome){
   odds.pla=rate.pla/(1-rate.pla)
   
   # calculate event rate for treatment
-  OR.pla$event.rate <- round(OR.pla$OR*odds.pla/(1+OR.pla$OR*odds.pla),digits=3)
+  OR.pla$value <- round(OR.pla$OR*odds.pla/(1+OR.pla$OR*odds.pla),digits=3)
   
-  # calculate Zscore accounting for clinically important risk difference
+  # Calculate Zscore accounting for clinically important risk difference
   clinically.important.RD.0 <- 0.0  
   risk.drugs.0 <- clinically.important.RD.0+rate.pla
   OR.import.0 <- risk.drugs.0/(1-risk.drugs.0)/((rate.pla)/(1-rate.pla))
   OR.pla$Zscore.0 <- (OR.pla$logOR-log(OR.import.0))/OR.pla$seTE
   
   outcome.result <- data.frame(outcome = paste('outcome', i), drug = OR.pla$drug, Zscore = OR.pla$Zscore.0,
-                               event.rate = round(OR.pla$event.rate*100,1), rate.pla = rate.pla, 
+                               value = round(OR.pla$value*100,1), rate.pla = rate.pla, 
                                logOR = OR.pla$logOR, seTE = OR.pla$seTE)
   final <- rbind(final, outcome.result)
   
 }
 
 final_data <- final
-final_data <- final_data[,c('outcome', 'drug', 'Zscore', 'event.rate', 'rate.pla')]
+final_data <- final_data[,c('outcome', 'drug', 'Zscore', 'value', 'rate.pla')]
 
-# add in control treatment (i.e. treatment = 1)
+#add in control treatment (i.e. treatment = 1)
 outcome.names <- c('outcome 1', 'outcome 2', 'outcome 3', 'outcome 4', 'outcome 5')
 
 final_data$drug <- paste('treatment', final_data$drug)
@@ -129,26 +128,25 @@ for (k in 1:noutcome) {
   final_data[nrow(final_data)+1,] <- NA
   final_data$drug[nrow(final_data)] <- 'placebo'
   final_data$outcome[nrow(final_data)] <- paste0(outcome.names[k])
-  final_data$event.rate[nrow(final_data)] <- round(unique(final$rate.pla[final$outcome==outcome.names[k]])*100,1)[1]
+  final_data$value[nrow(final_data)] <- round(unique(final$rate.pla[final$outcome==outcome.names[k]])*100,1)[1]
   final_data$rate.pla[nrow(final_data)] <- unique(final$rate.pla[final$outcome==outcome.names[k]])[1]
 }
 
-final_data$interpretation <- 'tmtb'
+final_data$interpretation <- 'tmtb' # the more, the better
 final_data$interpretation[final_data$outcome == 'outcome 2'] <- 'tltb'
 final_data$interpretation[final_data$outcome == 'outcome 3'] <- 'tltb'
 final_data$interpretation[final_data$outcome == 'outcome 4'] <- 'tltb'
 
-final_data$Zscore2 <- final_data$Zscore #truncated Zscore
+final_data$Zscore2 <- final_data$Zscore # truncated Z scores
 final_data$Zscore2[final_data$Zscore2 < -3] = -3
 final_data$Zscore2[final_data$Zscore2 > 3] = 3
 final_data$Zscore2[final_data$interpretation == 'tltb'] <- -final_data$Zscore2[final_data$interpretation == 'tltb']
 
 add_percent <- function(x){if(!is.na(x)){paste0(x, '%')} else{x}}
-final_data$event.rate2 <- sapply(final_data$event.rate, add_percent)
+final_data$value2 <- sapply(final_data$value, add_percent)
 
 ############## Vitruvian plot ----
 nrp <- final_data
-nrp <- rename(nrp, value = event.rate)
 nrp$drug[nrp$drug == 'treatment 2'] <- 'treatment 1'
 nrp$drug[nrp$drug == 'treatment 3'] <- 'treatment 2'
 simplify <- c('treatment 4', 'treatment 5', 'treatment 6', 'treatment 7')
@@ -194,7 +192,7 @@ nrp$outcome <- factor(nrp$outcome, levels = c('outcome 1', 'outcome 2', 'outcome
                       labels = c(rep(paste('outcome', rep(1:piecount)))))
 
 # folder prep
-setwd('~/Desktop/V plot/graph8.0 - for V plot/figure2') # [ACTION] change wd accordingly
+setwd('~/Desktop/V plot/graph8.0 - for V plot/figure2')
 ifelse(dir.exists('vitruvian plots'), print('folder already existing'), dir.create('vitruvian plots'))
 
 # function
@@ -236,7 +234,7 @@ nightingale <- function (drugname) {
     geom_hline(yintercept = eracle, color = '#002147', linetype = 1, size = 1.2) +
     xlab(toupper(drugname$drug[1])) +
     
-    # add values to the plot
+    # add intervention values to the intervention plots
     geom_label(x = outcome1.coord, y = eracle*0.84, label = ifelse(round(drugname$value[drugname$outcome == 'outcome 1'],0)<10,
                                                                    paste0(' ', round(drugname$value[drugname$outcome == 'outcome 1'],0), '%'), 
                                                                    paste0(round(drugname$value[drugname$outcome == 'outcome 1'],0), '%')), 
@@ -267,7 +265,7 @@ nightingale <- function (drugname) {
                size = 7, fill = '#787276', hjust = 0.5, color = '#f9fcff', family = 'Trebuchet MS', fontface = 'bold', label.padding = unit(0.6, 'lines'), 
                alpha = ifelse(is.na(drugname$value[drugname$outcome == 'outcome 5']), 0, ifelse(drugname$drug == 'placebo', 0, 1))) +
   
-    # add placebo values to the plot
+    # add placebo values to the placebo plot
     geom_point(x = outcome1.coord, y = eracle*0.84, shape = 21, colour = '#787276', fill = '#DDF1FB', size = 22, 
                alpha = ifelse(is.na(drugname$value[drugname$outcome == 'outcome 1']), 0, ifelse(drugname$drug == 'placebo', 1, 0))) +
     geom_text(x = outcome1.coord, y = eracle*0.84, label = paste0(round(drugname$rate.pla[drugname$outcome == 'outcome 1']*100,0), '%'), 
@@ -298,7 +296,7 @@ nightingale <- function (drugname) {
               size = 7, colour = '#787276', family = 'Trebuchet MS', fontface = 'bold', 
               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'outcome 5']), 0, ifelse(drugname$drug == 'placebo', 1, 0))) +
     
-    # add placebo values in the active treatment plots
+    # add placebo values in the intervention plots
     geom_point(x = outcome1.coord+(ctspace_end*2.8), y = eracle*0.855, shape = 21, colour = '#787276', fill = '#DDF1FB', size = 11.7, 
                alpha = ifelse(is.na(drugname$value[drugname$outcome == 'outcome 1']), 0, ifelse(drugname$drug == 'placebo', 0, 1))) +
     geom_text(x = outcome1.coord+(ctspace_end*2.8), y = eracle*0.855, label = paste0(round(drugname$rate.pla[drugname$outcome == 'outcome 1']*100,0), '%'), 
@@ -414,13 +412,13 @@ nightingale <- function (drugname) {
 
 plots <- lapply(split(nrp,nrp$drug), nightingale)
 
-# save the plots
+# loop - save
 lapply(names(plots), function(x) ggsave(filename = paste('vitruvian plots/', x, '.png', sep=''), plot = plots[[x]], dpi = 300, width = 11, height = 11))
 
 ############## legend
 legendplot <- ggplot(final_data, aes(outcome, drug)) + 
   geom_tile(aes(fill = round(Zscore2,2)), colour = 'white') + 
-  geom_text(aes(label= event.rate), size = 6) +
+  geom_text(aes(label = value), size = 6) +
   scale_fill_gradient2(low = '#00b050', mid = '#F5CF47', high = '#fa3545', na.value = '#DDF1FB', breaks = c(-2.575829, -1.959964, -1.644854, 0, 1.644854, 1.959964, 2.575829), limits = c(-3, 3), labels = c('p < 0.01', 'p = 0.05', 'p = 0.1', 'p = 1.00', 'p = 0.1', 'p = 0.05','p < 0.01'))+
   guides(fill = guide_colourbar(barwidth = 0.5, barheight = 15)) +
   labs(x = '',y = '') +
@@ -433,10 +431,8 @@ png('legend.png', res = 600, width = 5.5, height = 5.5, units = 'in')
 grid::grid.draw(legend)
 dev.off()
 
-ggsave(filename = 'legend.png', plot = legendimg, dpi = 300, width = 11, height = 11)
-
 ############## wrap
-setwd('~/Desktop/V plot/graph8.0 - for V plot/figure2/') # [ACTION] change wd accordingly
+setwd('~/Desktop/V plot/graph8.0 - for V plot/figure2/')
 multiple.plots <- function (x) {
   pattern <- paste0('.png$')
   Lfile <- list.files('vitruvian plots/', pattern = pattern)

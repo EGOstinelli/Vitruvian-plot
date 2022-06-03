@@ -7,19 +7,21 @@ library(tidyverse)
 library(extrafont)
 loadfonts()
 
-# data prep
-setwd('~/Desktop/V plot/graph8.0 - for insomnia')
+# any issue or question? Let me know on Twitter @EGOstinelli
 
-outcome.names <- c('ES', 'EL', 'AS', 'AL', 'TS', 'TL', 'Sa')
-noutcome <- 7 # number of outcomes
+# data prep
+setwd('~/Desktop/V plot') # set up your wd
+
+outcome.names <- c('ES', 'EL', 'AS', 'AL', 'TS', 'TL', 'Sa') # a character vector with your outcomes
+noutcome <- length(outcome.names)
 reference = 'placebo'
-db <- readRDS('db.rds')
-treat.names <- unique(db$Code_BZD_grouped)
+db <- readRDS('db.rds') # load your dataset as data.frame (optional, you can provide an external list of interventions)
+treat.names <- unique(db$your_interventions)
 active.treat <- treat.names[!treat.names %in% reference]
-active.treat <- active.treat[!active.treat %in% NA]
+active.treat <- active.treat[!active.treat %in% NA] # check, remove NAs
 
 # df
-data.ES <- readRDS('ES.rds')
+data.ES <- readRDS('ES.rds') # load outcome-specific data.frames
 data.EL <- readRDS('EL.rds')
 data.AS <- readRDS('AS.rds')
 data.AL <- readRDS('AL.rds')
@@ -28,45 +30,27 @@ data.TL <- readRDS('TL.rds')
 data.Sa <- readRDS('Sa.rds')
 
 # add estimates of placebo events for continuous outcomes
+## several options are available, with different requirements. We opted for the 50% improvement from baseline, considering the direction of the scale.
+## for this, we need information of baseline score and the best possible value of the scale.
+## if you plan to use both endpoint and change scores, you will need to indicate this in a specific column (e.g. 'type' in our example).
+## alternatively, these values can be #1 externally calculated or #2 provided by another study, or #3 be fictional.
 
-## baseline + abs(b/2)
-# data.ES <- data.ES[!(is.na(data.ES$QOS_mean_baseline)),]
-# data.ES$baseline.threshold <- (data.ES$QOS_mean_baseline+abs(data.ES$QOS_mean_baseline/2))
-# data.ES$prop.normalrange <- 1-(pnorm((data.ES$baseline.threshold-data.ES$mean)/data.ES$sd))
-# data.ES$r <- round(data.ES$prop.normalrange*data.ES$n,0)
-# data.ES$r[data.ES$intervention!='placebo'] <- NA
-# sum(data.ES$r[data.ES$intervention=='placebo'], na.rm = T)/sum(data.ES$n[data.ES$intervention=='placebo' & !is.na(data.ES$r)], na.rm = T)
+data.ES$threshold <- data.ES$baseline+abs((data.ES$best_value_scale-data.ES$baseline)/2)
+data.ES$prop <- 1-pnorm((data.ES$threshold-ifelse(data.ES$type=='endpoint', data.ES$mean, data.ES$baseline+data.ES$mean))/data.ES$sd)
+data.ES$r <- round(data.ES$prop*data.ES$n,0)
+data.ES$r[data.ES$intervention!=reference] <- NA
+sum(data.ES$r[data.ES$intervention==reference], na.rm = T)/sum(data.ES$n[data.ES$intervention==reference & !is.na(data.ES$r)], na.rm = T)
 
-# data.EL$baseline.threshold <- (data.EL$QOS_mean_baseline+abs(data.EL$QOS_mean_baseline/2))
-# data.EL$prop.normalrange <- 1-(pnorm((data.EL$baseline.threshold-data.EL$mean)/data.EL$sd))
-# data.EL$r <- round(data.EL$prop.normalrange*data.EL$n,0)
-# data.EL$r[data.EL$intervention!='placebo'] <- NA
-# sum(data.EL$r[data.EL$intervention=='placebo'], na.rm = T)/sum(data.EL$n[data.EL$intervention=='placebo' & !is.na(data.EL$r)], na.rm = T)
+data.EL$threshold <- data.EL$baseline+abs((data.EL$best_value_scale-data.EL$baseline)/2)
+data.EL$prop <- 1-pnorm((data.EL$threshold-ifelse(data.EL$type=='endpoint', data.EL$mean, data.EL$baseline+data.EL$mean))/data.EL$sd)
+data.EL$r <- round(data.EL$prop*data.EL$n,0)
+data.EL$r[data.EL$intervention!=reference] <- NA
+sum(data.EL$r[data.EL$intervention==reference], na.rm = T)/sum(data.EL$n[data.EL$intervention==reference & !is.na(data.EL$r)], na.rm = T)
 
-## baseline + ((max-b)/2)
-data.ES$baseline.threshold <- data.ES$QOS_mean_baseline+abs((data.ES$Maximum_scale-data.ES$QOS_mean_baseline)/2)
-data.ES$prop.normalrange <- 1-(pnorm((data.ES$baseline.threshold-data.ES$mean)/data.ES$sd))
-data.ES$r <- round(data.ES$prop.normalrange*data.ES$n,0)
-data.ES$r[data.ES$intervention!='placebo'] <- NA
-sum(data.ES$r[data.ES$intervention=='placebo'], na.rm = T)/sum(data.ES$n[data.ES$intervention=='placebo' & !is.na(data.ES$r)], na.rm = T)
-
-data.EL$baseline.threshold <- data.EL$QOS_mean_baseline+abs((data.EL$Maximum_scale-data.EL$QOS_mean_baseline)/2)
-data.EL$prop.normalrange <- 1-(pnorm((data.EL$baseline.threshold-data.EL$mean)/data.EL$sd))
-data.EL$r <- round(data.EL$prop.normalrange*data.EL$n,0)
-data.EL$r[data.EL$intervention!='placebo'] <- NA
-sum(data.EL$r[data.EL$intervention=='placebo'], na.rm = T)/sum(data.EL$n[data.EL$intervention=='placebo' & !is.na(data.EL$r)], na.rm = T)
-
-## pmax
-# data.EL$threshold <- data.EL$Maximum_scale*0.8
-# data.EL$prop.normalrange <- 1-(pnorm((data.EL$threshold-data.EL$mean)/data.EL$sd))
-# data.EL$r <- round(data.EL$prop.normalrange*data.EL$n,0)
-# data.EL$r[data.EL$intervention!='placebo'] <- NA
-# sum(data.EL$r[data.EL$intervention=='placebo'], na.rm = T)/sum(data.EL$n[data.EL$intervention=='placebo' & !is.na(data.EL$r)], na.rm = T)
-
-store0 <- list(data.ES, data.EL, data.AS, data.AL, data.TS, data.TL, data.Sa) #data for each outcome
+store0 <- list(data.ES, data.EL, data.AS, data.AL, data.TS, data.TL, data.Sa) # data for each outcome
 
 # netmeta objects
-result.ES <- readRDS('ES_NMA.rds')
+result.ES <- readRDS('ES_NMA.rds') # load previously saved netmeta objects (if already in your environment, you don't need this step)
 result.EL <- readRDS('EL_NMA.rds')
 result.AS <- readRDS('AS_NMA.rds')
 result.AL <- readRDS('AL_NMA.rds')
@@ -75,11 +59,12 @@ result.TL <- readRDS('TL_NMA.rds')
 result.Sa <- readRDS('Sa_NMA.rds')
 store <- list(result.ES, result.EL, result.AS, result.AL, result.TS, result.TL, result.Sa) #NMA results
 
-result.ES$TE.random <- (pi/sqrt(3))*result.ES$TE.random # Hasselblad & Hedges
-result.ES$seTE <- (pi/sqrt(3))*result.ES$seTE # Hasselblad & Hedges
+# this assumes you have used SMDs for your continuous values, using the Hasselblad & Hedges conversion
+result.ES$TE.random <- (pi/sqrt(3))*result.ES$TE.random
+result.ES$seTE <- (pi/sqrt(3))*result.ES$seTE
 
-result.EL$TE.random <- (pi/sqrt(3))*result.EL$TE.random # Hasselblad & Hedges
-result.EL$seTE <- (pi/sqrt(3))*result.EL$seTE # Hasselblad & Hedges
+result.EL$TE.random <- (pi/sqrt(3))*result.EL$TE.random
+result.EL$seTE <- (pi/sqrt(3))*result.EL$seTE
 
 #####
 
@@ -90,12 +75,12 @@ for (i in 1:noutcome) {
   data <- store0[[i]]
   net1 <- store[[i]]
   
-  # treatment estimate (odds ratio) from netmeta
+  # treatment estimate (odds ratio) from netmetas (different paths if MH or IV)
   OR.pla <- data.frame('drug' = colnames(net1$TE.random))
   OR.pla$logOR <- if (net1$method == 'MH') {net1$TE.fixed[,reference]} else {net1$TE.random[,reference]}
   OR.pla$seTE <- if (net1$method == 'MH') {net1$seTE.fixed[,reference]} else {net1$seTE.random[,reference]}
   OR.pla$OR <- exp(OR.pla$logOR)
-  OR.pla <- OR.pla[-which(OR.pla$drug==reference),] #exclude comparison with placebo itself which is 0
+  OR.pla <- OR.pla[-which(OR.pla$drug==reference),] # exclude comparison with placebo itself which is 0
   
   # meta analysis of event rates in placebo
   meta.pla = metaprop(event = round(data$r[data$intervention==reference]), n = data$n[data$intervention==reference], method = 'GLMM')
@@ -105,7 +90,7 @@ for (i in 1:noutcome) {
   # calculate event rate for treatment
   OR.pla$event.rate <- round(OR.pla$OR*odds.pla/(1+OR.pla$OR*odds.pla),digits=3)
   
-  # Calculate Zscore accounting for clinically important risk difference
+  # calculate Z-scores accounting for clinically important risk difference
   clinically.important.RD.0 <- 0.0
   risk.drugs.0 <- clinically.important.RD.0+rate.pla
   OR.import.0 <- risk.drugs.0/(1-risk.drugs.0)/((rate.pla)/(1-rate.pla))
@@ -130,15 +115,16 @@ for (i in 1:noutcome) {
 final_data <- final
 final_data <- final_data[,c('outcome', 'drug', 'Zscore', 'event.rate', 'rate.pla')]
 
-#add in control treatment (i.e. treatment = 1)
+# add in control treatment (i.e. treatment = 1)
 for (k in 1:noutcome) {
   final_data[nrow(final_data)+1,] <- NA
-  final_data$drug[nrow(final_data)] <- 'placebo'
+  final_data$drug[nrow(final_data)] <- reference
   final_data$outcome[nrow(final_data)] <- paste0(outcome.names[k])
   final_data$event.rate[nrow(final_data)] <- round(unique(final$rate.pla[final$outcome==outcome.names[k]])*100,1)[1]
   final_data$rate.pla[nrow(final_data)] <- unique(final$rate.pla[final$outcome==outcome.names[k]])[1]
   }
 
+# you need to specify the interpretation of your outcomes (i.e. the more the better versus the less the better)
 final_data$interpretation <- 'tmtb'
 final_data$interpretation[final_data$outcome == 'AS'] <- 'tltb'
 final_data$interpretation[final_data$outcome == 'AL'] <- 'tltb'
@@ -146,23 +132,14 @@ final_data$interpretation[final_data$outcome == 'TS'] <- 'tltb'
 final_data$interpretation[final_data$outcome == 'TL'] <- 'tltb'
 final_data$interpretation[final_data$outcome == 'Sa'] <- 'tltb'
 
-final_data$Zscore2 <- final_data$Zscore #truncated zscore
+final_data$Zscore2 <- final_data$Zscore #truncated z scores
 final_data$Zscore2[final_data$Zscore2 < -3] = -3
 final_data$Zscore2[final_data$Zscore2 > 3] = 3
 final_data$Zscore2[final_data$interpretation == 'tltb'] <- -final_data$Zscore2[final_data$interpretation == 'tltb']
 
-add_percent <- function(x){if(!is.na(x)){paste0(x, '%')} else{x}}
-final_data$event.rate2 <- sapply(final_data$event.rate, add_percent)
-
 ############## vitruvian plot ----
 nrp <- final_data
 nrp <- rename(nrp, value = event.rate)
-nrp$drug[nrp$drug=='BZD-intermediate'] <- 'BDZ (intermediate)'
-nrp$drug[nrp$drug=='BZD-long'] <- 'BDZ (long)'
-nrp$drug[nrp$drug=='BZD-short'] <- 'BDZ (short)'
-# setwd('~/Desktop/V plot/graph8.0 - for insomnia')
-# saveRDS(nrp, 'nrp.rds')
-# nrp <- readRDS('nrp.rds')
 
 # landmarks
 eracle <- ceiling(max(nrp$value, na.rm = T)) # [ACTION] if you want to limit the plot until a specific value
@@ -206,7 +183,6 @@ nrp$outcome <- factor(nrp$outcome, levels = c('EL', 'AL', 'TL', 'Sa', 'TS', 'AS'
                       c('EL', 'AL', 'TL', 'Sa', 'TS', 'AS', 'ES'))
 
 # folder prep
-setwd('~/Desktop/V plot/graph8.0 - for insomnia')
 ifelse(dir.exists('vitruvian plots'), print('folder already existing'), dir.create('vitruvian plots'))
 
 # function
@@ -255,134 +231,134 @@ nightingale <- function (drugname) {
     geom_hline(yintercept = eracle, color = '#002147', linetype = 1, size = 1.2) +
     xlab(toupper(drugname$drug[1])) +
     
-    # add intervention values to the plot
+    # add active intervention values to the active intervention plots
     geom_label(x = outcome1.coord, y = eracle*0.84, label = ifelse(round(drugname$value[drugname$outcome == 'EL'],0)<10,
                                                                   paste0(' ', round(drugname$value[drugname$outcome == 'EL'],0), '%'), 
                                                                   paste0(round(drugname$value[drugname$outcome == 'EL'],0), '%')), 
               size = 7, fill = '#787276', hjust = 0.5, color = '#f9fcff', family = 'Trebuchet MS', fontface = 'bold', label.padding = unit(0.6, 'lines'), 
-              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'EL']), 0, ifelse(drugname$drug == 'placebo', 0, 1))) +
+              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'EL']), 0, ifelse(drugname$drug == reference, 0, 1))) +
   
     geom_label(x = outcome2.coord, y = eracle*0.84, label = ifelse(round(drugname$value[drugname$outcome == 'AL'])<10,
                                                                   paste0(' ', round(drugname$value[drugname$outcome == 'AL'],0), '%'), 
                                                                   paste0(round(drugname$value[drugname$outcome == 'AL'],0), '%')), 
               size = 7, fill = '#787276', hjust = 0.5, color = '#f9fcff', family = 'Trebuchet MS', fontface = 'bold', label.padding = unit(0.6, 'lines'), 
-              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'AL']), 0, ifelse(drugname$drug == 'placebo', 0, 1))) +
+              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'AL']), 0, ifelse(drugname$drug == reference, 0, 1))) +
   
     geom_label(x = outcome3.coord, y = eracle*0.84, label = ifelse(round(drugname$value[drugname$outcome == 'TL'])<10,
                                                                   paste0(' ', round(drugname$value[drugname$outcome == 'TL'],0), '%'), 
                                                                   paste0(round(drugname$value[drugname$outcome == 'TL'],0), '%')), 
               size = 7, fill = '#787276', hjust = 0.5, color = '#f9fcff', family = 'Trebuchet MS', fontface = 'bold', label.padding = unit(0.6, 'lines'), 
-              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'TL']), 0, ifelse(drugname$drug == 'placebo', 0, 1))) +
+              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'TL']), 0, ifelse(drugname$drug == reference, 0, 1))) +
   
     geom_label(x = outcome4.coord, y = eracle*0.84, label = ifelse(round(drugname$value[drugname$outcome == 'Sa'])<10,
                                                                   paste0(' ', round(drugname$value[drugname$outcome == 'Sa'],0), '%'), 
                                                                   paste0(round(drugname$value[drugname$outcome == 'Sa'],0), '%')), 
               size = 7, fill = '#787276', hjust = 0.5, color = '#f9fcff', family = 'Trebuchet MS', fontface = 'bold', label.padding = unit(0.6, 'lines'), 
-              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'Sa']), 0, ifelse(drugname$drug == 'placebo', 0, 1))) +
+              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'Sa']), 0, ifelse(drugname$drug == reference, 0, 1))) +
   
     geom_label(x = outcome5.coord, y = eracle*0.84, label = ifelse(round(drugname$value[drugname$outcome == 'TS'])<10,
                                                                   paste0(' ', round(drugname$value[drugname$outcome == 'TS'],0), '%'), 
                                                                   paste0(round(drugname$value[drugname$outcome == 'TS'],0), '%')), 
               size = 7, fill = '#787276', hjust = 0.5, color = '#f9fcff', family = 'Trebuchet MS', fontface = 'bold', label.padding = unit(0.6, 'lines'), 
-              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'TS']), 0, ifelse(drugname$drug == 'placebo', 0, 1))) +
+              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'TS']), 0, ifelse(drugname$drug == reference, 0, 1))) +
   
     geom_label(x = outcome6.coord, y = eracle*0.84, label = ifelse(round(drugname$value[drugname$outcome == 'AS'])<10,
                                                                   paste0(' ', round(drugname$value[drugname$outcome == 'AS'],0), '%'), 
                                                                   paste0(round(drugname$value[drugname$outcome == 'AS'],0), '%')), 
               size = 7, fill = '#787276', hjust = 0.5, color = '#f9fcff', family = 'Trebuchet MS', fontface = 'bold', label.padding = unit(0.6, 'lines'), 
-              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'AS']), 0, ifelse(drugname$drug == 'placebo', 0, 1))) +
+              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'AS']), 0, ifelse(drugname$drug == reference, 0, 1))) +
     
     geom_label(x = outcome7.coord, y = eracle*0.84, label = ifelse(round(drugname$value[drugname$outcome == 'ES'])<10,
                                                                   paste0(' ', round(drugname$value[drugname$outcome == 'ES'],0), '%'), 
                                                                   paste0(round(drugname$value[drugname$outcome == 'ES'],0), '%')), 
               size = 7, fill = '#787276', hjust = 0.5, color = '#f9fcff', family = 'Trebuchet MS', fontface = 'bold', label.padding = unit(0.6, 'lines'), 
-              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'ES']), 0, ifelse(drugname$drug == 'placebo', 0, 1))) +
+              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'ES']), 0, ifelse(drugname$drug == reference, 0, 1))) +
     
-    # add comparator values to the plot
+    # add reference values to the reference plot
     geom_point(x = outcome1.coord, y = eracle*0.84, shape = 21, colour = '#787276', fill = '#DDF1FB', size = 22, 
-               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'EL']), 0, ifelse(drugname$drug == 'placebo', 1, 0))) +
+               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'EL']), 0, ifelse(drugname$drug == reference, 1, 0))) +
     geom_text(x = outcome1.coord, y = eracle*0.84, label = paste0(round(drugname$rate.pla[drugname$outcome == 'EL']*100,0), '%'), 
               size = 7, colour = '#787276', family = 'Trebuchet MS', fontface = 'bold', 
-              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'EL']), 0, ifelse(drugname$drug == 'placebo', 1, 0))) +
+              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'EL']), 0, ifelse(drugname$drug == reference, 1, 0))) +
     
     geom_point(x = outcome2.coord, y = eracle*0.84, shape = 21, colour = '#787276', fill = '#DDF1FB', size = 22, 
-               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'AL']), 0, ifelse(drugname$drug == 'placebo', 1, 0))) +
+               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'AL']), 0, ifelse(drugname$drug == reference, 1, 0))) +
     geom_text(x = outcome2.coord, y = eracle*0.84, label = paste0(round(drugname$rate.pla[drugname$outcome == 'AL']*100,0), '%'), 
               size = 7, colour = '#787276', family = 'Trebuchet MS', fontface = 'bold', 
-              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'AL']), 0, ifelse(drugname$drug == 'placebo', 1, 0))) +
+              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'AL']), 0, ifelse(drugname$drug == reference, 1, 0))) +
     
     geom_point(x = outcome3.coord, y = eracle*0.84, shape = 21, colour = '#787276', fill = '#DDF1FB', size = 22, 
-               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'TL']), 0, ifelse(drugname$drug == 'placebo', 1, 0))) +
+               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'TL']), 0, ifelse(drugname$drug == reference, 1, 0))) +
     geom_text(x = outcome3.coord, y = eracle*0.84, label = paste0(round(drugname$rate.pla[drugname$outcome == 'TL']*100,0), '%'), 
               size = 7, colour = '#787276', family = 'Trebuchet MS', fontface = 'bold', 
-              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'TL']), 0, ifelse(drugname$drug == 'placebo', 1, 0))) +
+              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'TL']), 0, ifelse(drugname$drug == reference, 1, 0))) +
     
     geom_point(x = outcome4.coord, y = eracle*0.84, shape = 21, colour = '#787276', fill = '#DDF1FB', size = 22, 
-               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'Sa']), 0, ifelse(drugname$drug == 'placebo', 1, 0))) +
+               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'Sa']), 0, ifelse(drugname$drug == reference, 1, 0))) +
     geom_text(x = outcome4.coord, y = eracle*0.84, label = paste0(round(drugname$rate.pla[drugname$outcome == 'Sa']*100,0), '%'), 
               size = 7, colour = '#787276', family = 'Trebuchet MS', fontface = 'bold', 
-              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'Sa']), 0, ifelse(drugname$drug == 'placebo', 1, 0))) +
+              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'Sa']), 0, ifelse(drugname$drug == reference, 1, 0))) +
     
     geom_point(x = outcome5.coord, y = eracle*0.84, shape = 21, colour = '#787276', fill = '#DDF1FB', size = 22, 
-               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'TS']), 0, ifelse(drugname$drug == 'placebo', 1, 0))) +
+               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'TS']), 0, ifelse(drugname$drug == reference, 1, 0))) +
     geom_text(x = outcome5.coord, y = eracle*0.84, label = paste0(round(drugname$rate.pla[drugname$outcome == 'TS']*100,0), '%'), 
               size = 7, colour = '#787276', family = 'Trebuchet MS', fontface = 'bold', 
-              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'TS']), 0, ifelse(drugname$drug == 'placebo', 1, 0))) +
+              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'TS']), 0, ifelse(drugname$drug == reference, 1, 0))) +
     
     geom_point(x = outcome6.coord, y = eracle*0.84, shape = 21, colour = '#787276', fill = '#DDF1FB', size = 22, 
-               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'AS']), 0, ifelse(drugname$drug == 'placebo', 1, 0))) +
+               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'AS']), 0, ifelse(drugname$drug == reference, 1, 0))) +
     geom_text(x = outcome6.coord, y = eracle*0.84, label = paste0(round(drugname$rate.pla[drugname$outcome == 'AS']*100,0), '%'), 
               size = 7, colour = '#787276', family = 'Trebuchet MS', fontface = 'bold', 
-              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'AS']), 0, ifelse(drugname$drug == 'placebo', 1, 0))) +
+              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'AS']), 0, ifelse(drugname$drug == reference, 1, 0))) +
     
     geom_point(x = outcome7.coord, y = eracle*0.84, shape = 21, colour = '#787276', fill = '#DDF1FB', size = 22, 
-               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'ES']), 0, ifelse(drugname$drug == 'placebo', 1, 0))) +
+               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'ES']), 0, ifelse(drugname$drug == reference, 1, 0))) +
     geom_text(x = outcome7.coord, y = eracle*0.84, label = paste0(round(drugname$rate.pla[drugname$outcome == 'ES']*100,0), '%'), 
               size = 7, colour = '#787276', family = 'Trebuchet MS', fontface = 'bold', 
-              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'ES']), 0, ifelse(drugname$drug == 'placebo', 1, 0))) +
+              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'ES']), 0, ifelse(drugname$drug == reference, 1, 0))) +
     
-    # add comparator values in the intervention plots
-    geom_point(x = outcome1.coord+(ctspace_end*4), y = eracle*0.855, shape = 21, colour = '#787276', fill = '#DDF1FB', size = 11.7, 
-               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'EL']), 0, ifelse(drugname$drug == 'placebo', 0, 1))) +
-    geom_text(x = outcome1.coord+(ctspace_end*4), y = eracle*0.855, label = paste0(round(drugname$rate.pla[drugname$outcome == 'EL']*100,0), '%'), 
+    # add reference values in the active intervention plots
+    geom_point(x = outcome1.coord, y = eracle*0.7, shape = 21, colour = '#787276', fill = '#DDF1FB', size = 11.7, 
+               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'EL']), 0, ifelse(drugname$drug == reference, 0, 1))) +
+    geom_text(x = outcome1.coord, y = eracle*0.7, label = paste0(round(drugname$rate.pla[drugname$outcome == 'EL']*100,0), '%'), 
               size = 3.5, colour = '#787276', family = 'Trebuchet MS', fontface = 'bold', 
-              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'EL']), 0, ifelse(drugname$drug == 'placebo', 0, 1))) +
+              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'EL']), 0, ifelse(drugname$drug == reference, 0, 1))) +
     
-    geom_point(x = outcome2.coord+(ctspace_end*2.262), y = eracle*0.93, shape = 21, colour = '#787276', fill = '#DDF1FB', size = 11.7, 
-               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'AL']), 0, ifelse(drugname$drug == 'placebo', 0, 1))) +
-    geom_text(x = outcome2.coord+(ctspace_end*2.262), y = eracle*0.93, label = paste0(round(drugname$rate.pla[drugname$outcome == 'AL']*100,0), '%'), 
+    geom_point(x = outcome2.coord, y = eracle*0.7, shape = 21, colour = '#787276', fill = '#DDF1FB', size = 11.7, 
+               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'AL']), 0, ifelse(drugname$drug == reference, 0, 1))) +
+    geom_text(x = outcome2.coord, y = eracle*0.7, label = paste0(round(drugname$rate.pla[drugname$outcome == 'AL']*100,0), '%'), 
               size = 3.5, colour = '#787276', family = 'Trebuchet MS', fontface = 'bold', 
-              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'AL']), 0, ifelse(drugname$drug == 'placebo', 0, 1))) +
+              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'AL']), 0, ifelse(drugname$drug == reference, 0, 1))) +
     
-    geom_point(x = outcome3.coord-(ctspace_end*0.947), y = eracle*0.947, shape = 21, colour = '#787276', fill = '#DDF1FB', size = 11.7, 
-               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'TL']), 0, ifelse(drugname$drug == 'placebo', 0, 1))) +
-    geom_text(x = outcome3.coord-(ctspace_end*0.947), y = eracle*0.947, label = paste0(round(drugname$rate.pla[drugname$outcome == 'TL']*100,0), '%'), 
+    geom_point(x = outcome3.coord, y = eracle*0.7, shape = 21, colour = '#787276', fill = '#DDF1FB', size = 11.7, 
+               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'TL']), 0, ifelse(drugname$drug == reference, 0, 1))) +
+    geom_text(x = outcome3.coord, y = eracle*0.7, label = paste0(round(drugname$rate.pla[drugname$outcome == 'TL']*100,0), '%'), 
               size = 3.5, colour = '#787276', family = 'Trebuchet MS', fontface = 'bold', 
-              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'TL']), 0, ifelse(drugname$drug == 'placebo', 0, 1))) +
+              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'TL']), 0, ifelse(drugname$drug == reference, 0, 1))) +
     
-    geom_point(x = outcome4.coord-(ctspace_end*3.7), y = eracle*0.8889, shape = 21, colour = '#787276', fill = '#DDF1FB', size = 11.7, 
-               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'Sa']), 0, ifelse(drugname$drug == 'placebo', 0, 1))) +
-    geom_text(x = outcome4.coord-(ctspace_end*3.7), y = eracle*0.8889, label = paste0(round(drugname$rate.pla[drugname$outcome == 'Sa']*100,0), '%'), 
+    geom_point(x = outcome4.coord, y = eracle*0.7, shape = 21, colour = '#787276', fill = '#DDF1FB', size = 11.7, 
+               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'Sa']), 0, ifelse(drugname$drug == reference, 0, 1))) +
+    geom_text(x = outcome4.coord, y = eracle*0.7, label = paste0(round(drugname$rate.pla[drugname$outcome == 'Sa']*100,0), '%'), 
               size = 3.5, colour = '#787276', family = 'Trebuchet MS', fontface = 'bold', 
-              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'Sa']), 0, ifelse(drugname$drug == 'placebo', 0, 1))) +
+              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'Sa']), 0, ifelse(drugname$drug == reference, 0, 1))) +
     
-    geom_point(x = outcome5.coord-(ctspace_end*3.8), y = eracle*0.8, shape = 21, colour = '#787276', fill = '#DDF1FB', size = 11.7, 
-               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'TS']), 0, ifelse(drugname$drug == 'placebo', 0, 1))) +
-    geom_text(x = outcome5.coord-(ctspace_end*3.8), y = eracle*0.8, label = paste0(round(drugname$rate.pla[drugname$outcome == 'TS']*100,0), '%'), 
+    geom_point(x = outcome5.coord, y = eracle*0.7, shape = 21, colour = '#787276', fill = '#DDF1FB', size = 11.7, 
+               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'TS']), 0, ifelse(drugname$drug == reference, 0, 1))) +
+    geom_text(x = outcome5.coord, y = eracle*0.7, label = paste0(round(drugname$rate.pla[drugname$outcome == 'TS']*100,0), '%'), 
               size = 3.5, colour = '#787276', family = 'Trebuchet MS', fontface = 'bold', 
-              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'TS']), 0, ifelse(drugname$drug == 'placebo', 0, 1))) +
+              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'TS']), 0, ifelse(drugname$drug == reference, 0, 1))) +
     
-    geom_point(x = outcome6.coord-(ctspace_end*0.85), y = eracle*0.727, shape = 21, colour = '#787276', fill = '#DDF1FB', size = 11.7, 
-               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'AS']), 0, ifelse(drugname$drug == 'placebo', 0, 1))) +
-    geom_text(x = outcome6.coord-(ctspace_end*0.85), y = eracle*0.727, label = paste0(round(drugname$rate.pla[drugname$outcome == 'AS']*100,0), '%'), 
+    geom_point(x = outcome6.coord, y = eracle*0.7, shape = 21, colour = '#787276', fill = '#DDF1FB', size = 11.7, 
+               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'AS']), 0, ifelse(drugname$drug == reference, 0, 1))) +
+    geom_text(x = outcome6.coord, y = eracle*0.7, label = paste0(round(drugname$rate.pla[drugname$outcome == 'AS']*100,0), '%'), 
               size = 3.5, colour = '#787276', family = 'Trebuchet MS', fontface = 'bold', 
-              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'AS']), 0, ifelse(drugname$drug == 'placebo', 0, 1))) +
+              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'AS']), 0, ifelse(drugname$drug == reference, 0, 1))) +
     
-    geom_point(x = outcome7.coord+(ctspace_end*3.1), y = eracle*0.76, shape = 21, colour = '#787276', fill = '#DDF1FB', size = 11.7, 
-               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'ES']), 0, ifelse(drugname$drug == 'placebo', 0, 1))) +
-    geom_text(x = outcome7.coord+(ctspace_end*3.1), y = eracle*0.76, label = paste0(round(drugname$rate.pla[drugname$outcome == 'ES']*100,0), '%'), 
+    geom_point(x = outcome7.coord, y = eracle*0.7, shape = 21, colour = '#787276', fill = '#DDF1FB', size = 11.7, 
+               alpha = ifelse(is.na(drugname$value[drugname$outcome == 'ES']), 0, ifelse(drugname$drug == reference, 0, 1))) +
+    geom_text(x = outcome7.coord, y = eracle*0.7, label = paste0(round(drugname$rate.pla[drugname$outcome == 'ES']*100,0), '%'), 
               size = 3.5, colour = '#787276', family = 'Trebuchet MS', fontface = 'bold', 
-              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'ES']), 0, ifelse(drugname$drug == 'placebo', 0, 1))) +
+              alpha = ifelse(is.na(drugname$value[drugname$outcome == 'ES']), 0, ifelse(drugname$drug == reference, 0, 1))) +
     
     # polar coordinate system
     coord_polar(clip = 'off', direction = 1) +
@@ -581,15 +557,15 @@ nightingale <- function (drugname) {
     geom_text(x=outcome7.coord+(ctspace_end*10), y=outcome.height, label='d', size = size.text.int, colour = radial.int.col, angle = ((360/piecount)*(piecount-outcome7.coord+0.5)-ctangle_end*10), alpha = radial.int.alpha, family='Andale Mono') +
     
     # labels
-    geom_text(x = 0.5, y = 10, label = ' 10%', size = 5.5, colour = '#002147', vjust = '1', hjust = 'left', alpha = ifelse((eracle-10)>=(linespace/2), ifelse(drugname$drug == 'placebo', 0.15, 0), 0)) +
-    geom_text(x = 0.5, y = 20, label = ' 20%', size = 5.5, colour = '#002147', vjust = '1', hjust = 'left', alpha = ifelse((eracle-20)>=(linespace/2), ifelse(drugname$drug == 'placebo', 0.15, 0), 0)) +
-    geom_text(x = 0.5, y = 30, label = ' 30%', size = 5.5, colour = '#002147', vjust = '1', hjust = 'left', alpha = ifelse((eracle-30)>=(linespace/2), ifelse(drugname$drug == 'placebo', 0.15, 0), 0)) +
-    geom_text(x = 0.5, y = 40, label = ' 40%', size = 5.5, colour = '#002147', vjust = '1', hjust = 'left', alpha = ifelse((eracle-40)>=(linespace/2), ifelse(drugname$drug == 'placebo', 0.15, 0), 0)) +
-    geom_text(x = 0.5, y = 50, label = ' 50%', size = 5.5, colour = '#002147', vjust = '1', hjust = 'left', alpha = ifelse((eracle-50)>=(linespace/2), ifelse(drugname$drug == 'placebo', 0.15, 0), 0)) +
-    geom_text(x = 0.5, y = 60, label = ' 60%', size = 5.5, colour = '#002147', vjust = '1', hjust = 'left', alpha = ifelse((eracle-60)>=(linespace/2), ifelse(drugname$drug == 'placebo', 0.15, 0), 0)) +
-    geom_text(x = 0.5, y = 70, label = ' 70%', size = 5.5, colour = '#002147', vjust = '1', hjust = 'left', alpha = ifelse((eracle-70)>=(linespace/2), ifelse(drugname$drug == 'placebo', 0.15, 0), 0)) +
-    geom_text(x = 0.5, y = 80, label = ' 80%', size = 5.5, colour = '#002147', vjust = '1', hjust = 'left', alpha = ifelse((eracle-80)>=(linespace/2), ifelse(drugname$drug == 'placebo', 0.15, 0), 0)) +
-    geom_text(x = 0.5, y = 90, label = ' 90%', size = 5.5, colour = '#002147', vjust = '1', hjust = 'left', alpha = ifelse((eracle-90)>=(linespace/2), ifelse(drugname$drug == 'placebo', 0.15, 0), 0)) +
+    geom_text(x = 0.5, y = 10, label = ' 10%', size = 5.5, colour = '#002147', vjust = '1', hjust = 'left', alpha = ifelse((eracle-10)>=(linespace/2), ifelse(drugname$drug == reference, 0.15, 0), 0)) +
+    geom_text(x = 0.5, y = 20, label = ' 20%', size = 5.5, colour = '#002147', vjust = '1', hjust = 'left', alpha = ifelse((eracle-20)>=(linespace/2), ifelse(drugname$drug == reference, 0.15, 0), 0)) +
+    geom_text(x = 0.5, y = 30, label = ' 30%', size = 5.5, colour = '#002147', vjust = '1', hjust = 'left', alpha = ifelse((eracle-30)>=(linespace/2), ifelse(drugname$drug == reference, 0.15, 0), 0)) +
+    geom_text(x = 0.5, y = 40, label = ' 40%', size = 5.5, colour = '#002147', vjust = '1', hjust = 'left', alpha = ifelse((eracle-40)>=(linespace/2), ifelse(drugname$drug == reference, 0.15, 0), 0)) +
+    geom_text(x = 0.5, y = 50, label = ' 50%', size = 5.5, colour = '#002147', vjust = '1', hjust = 'left', alpha = ifelse((eracle-50)>=(linespace/2), ifelse(drugname$drug == reference, 0.15, 0), 0)) +
+    geom_text(x = 0.5, y = 60, label = ' 60%', size = 5.5, colour = '#002147', vjust = '1', hjust = 'left', alpha = ifelse((eracle-60)>=(linespace/2), ifelse(drugname$drug == reference, 0.15, 0), 0)) +
+    geom_text(x = 0.5, y = 70, label = ' 70%', size = 5.5, colour = '#002147', vjust = '1', hjust = 'left', alpha = ifelse((eracle-70)>=(linespace/2), ifelse(drugname$drug == reference, 0.15, 0), 0)) +
+    geom_text(x = 0.5, y = 80, label = ' 80%', size = 5.5, colour = '#002147', vjust = '1', hjust = 'left', alpha = ifelse((eracle-80)>=(linespace/2), ifelse(drugname$drug == reference, 0.15, 0), 0)) +
+    geom_text(x = 0.5, y = 90, label = ' 90%', size = 5.5, colour = '#002147', vjust = '1', hjust = 'left', alpha = ifelse((eracle-90)>=(linespace/2), ifelse(drugname$drug == reference, 0.15, 0), 0)) +
     
     # extra-lines
     geom_segment(x = 0.5, y = 0, xend = 0.5, yend = eracle*1.1, colour = "#002147", size = 0.7) +
@@ -633,7 +609,6 @@ grid::grid.draw(legend)
 dev.off()
 
 # synoptic charts ----
-setwd('~/Desktop/V plot/graph8.0 - for insomnia')
 ifelse(dir.exists('synoptic chart'), print('folder already existing'), dir.create('synoptic chart'))
 pattern <- paste0('.png$')
 Lfile <- list.files('vitruvian plots/', pattern = pattern)
